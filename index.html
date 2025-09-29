@@ -5,11 +5,7 @@
   <title>부가기능 더보기</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    :root{
-      --primary:#004884; --sub1:#0069b4; --sub2:#09bbef;
-      --ink:#1f2a37; --muted:#6b7280; --bg:#f6f8fb;
-      --card:#ffffff; --bd:#e5e7eb;
-    }
+    :root{--primary:#004884;--sub1:#0069b4;--sub2:#09bbef;--ink:#1f2a37;--muted:#6b7280;--bg:#f6f8fb;--card:#ffffff;--bd:#e5e7eb;}
     body{margin:0;font-family:Inter, Pretendard, sans-serif;background:var(--bg);color:var(--ink)}
     .topbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--bd)}
     .topbar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:14px 16px}
@@ -37,7 +33,6 @@
     .card{position:relative;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.06);transition:transform .18s ease;cursor:pointer}
     .card:hover{transform:translateY(-4px)}
     .icon{width:40px;height:40px;border-radius:10px;background:#eef7ff;display:grid;place-items:center;color:var(--primary);font-size:20px;margin-bottom:10px;overflow:hidden}
-    .icon img{max-width:100%;max-height:100%}
     .title-sm{font-weight:800;color:var(--sub1)}
     .desc{font-size:13px;color:#4b5563;line-height:1.45}
     .subdesc{font-size:12px;color:#6b7280;margin-top:6px}
@@ -55,9 +50,8 @@
     .field label .req{color:#f43f5e;margin-left:4px}
     .field input,.field textarea,.field select{padding:10px;border:2px solid var(--bd);border-radius:10px}
     .picker{display:grid;grid-template-columns:repeat(10,40px);gap:8px}
-    .pick{width:40px;height:40px;border:2px solid #d7e6f5;border-radius:10px;display:grid;place-items:center;cursor:pointer;overflow:hidden}
+    .pick{width:40px;height:40px;border:2px solid #d7e6f5;border-radius:10px;display:grid;place-items:center;cursor:pointer}
     .pick.active{border-color:var(--primary)}
-    .pick img{max-width:100%;max-height:100%}
     .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,var(--sub2),#7fe6ff);color:#003a5e;font-weight:800;opacity:0;pointer-events:none;transition:.25s;z-index:80}
     .toast.show{opacity:1}
   </style>
@@ -104,11 +98,7 @@
     <div class="content">
       <div class="field">
         <label>아이콘 선택</label>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-          <div class="picker" id="icon-picker"></div>
-          <button class="btn btn-outline" id="btn-upload-icon">+ 아이콘 업로드</button>
-          <input type="file" id="icon-file" accept="image/*" style="display:none">
-        </div>
+        <div class="picker" id="icon-picker"></div>
       </div>
       <div class="field">
         <label>분류 <span class="req">*</span></label>
@@ -146,7 +136,6 @@
     import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } 
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 🔧 본인 프로젝트 설정
     const firebaseConfig = {
       apiKey: "AIzaSyCbDFAGaavZP2a2cv14kB8WLEsiwAXMH84",
       authDomain: "groupware-test-8586b.firebaseapp.com",
@@ -159,7 +148,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- Elements
     const grid=document.getElementById('grid');
     const categoryTabs=document.getElementById('category-tabs');
     const searchInput=document.getElementById('search');
@@ -178,10 +166,7 @@
     const toast=document.getElementById('toast');
     const iconPicker=document.getElementById('icon-picker');
     const switchEl=document.getElementById('switch');
-    const btnUploadIcon=document.getElementById('btn-upload-icon');
-    const iconFile=document.getElementById('icon-file');
 
-    // --- State
     let isAdmin=false, selectedIcon=null;
     let editingId=null;
 
@@ -195,116 +180,14 @@
     ];
     let customCategories=[];
 
-    // --- Utilities
-    function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}
-    function openModal(){overlay.style.display='block';pluginModal.style.display='block'}
-    function closeModal(){overlay.style.display='none';pluginModal.style.display='none';editingId=null;clearForm();}
-    function clearForm(){
-      nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';
-      selectedIcon=null;
-      document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));
-      if(categorySelect.options.length) categorySelect.selectedIndex=0;
-    }
-
-    // --- Category (dropdown & tabs)
-    function populateCategorySelect(){
-      categorySelect.innerHTML='';
-      [...defaultCategories,...customCategories].forEach(c=>{
-        const opt=document.createElement('option');
-        opt.value=c.id; opt.textContent=c.label; categorySelect.appendChild(opt);
-      });
-      const opt=document.createElement('option');
-      opt.value='__new__'; opt.textContent='새 분류 추가'; categorySelect.appendChild(opt);
-    }
-
-    function addCategoryTab(id,label){
-      const tab=document.createElement('button');
-      tab.className='tab custom';
-      tab.dataset.cat=id; tab.textContent=label;
-      const remove=document.createElement('button');
-      remove.className='remove'; remove.textContent='×';
-      remove.onclick=(e)=>{ // 관리자만 삭제
-        e.stopPropagation();
-        if(!isAdmin) return;
-        customCategories=customCategories.filter(c=>c.id!==id);
-        tab.remove(); populateCategorySelect(); setActiveTab('all');
-      };
-      tab.appendChild(remove);
-      categoryTabs.appendChild(tab);
-      if(isAdmin) tab.classList.add('admin'); else tab.classList.remove('admin');
-    }
-
-    categorySelect.addEventListener('change',()=>{
-      if(categorySelect.value==='__new__'){
-        const val=prompt('새 분류명을 입력하세요:');
-        if(val && val.trim()){
-          const id=val.trim().toLowerCase().replace(/\s+/g,'-');
-          if([...defaultCategories,...customCategories].some(c=>c.id===id)){
-            showToast('이미 존재하는 분류입니다'); categorySelect.value=defaultCategories[0].id; return;
-          }
-          customCategories.push({id,label:val.trim()});
-          populateCategorySelect();
-          categorySelect.value=id;
-          addCategoryTab(id,val.trim());
-        }else{
-          categorySelect.value=defaultCategories[0].id;
-        }
-      }
-    });
-
-    function setActiveTab(cat){
-      [...categoryTabs.querySelectorAll('.tab')].forEach(t=>{
-        t.classList.toggle('active', t.dataset.cat===cat);
-      });
-      applyFilters();
-    }
-
-    // 탭 클릭 (이벤트 위임)
-    categoryTabs.addEventListener('click',(e)=>{
-      const btn=e.target.closest('.tab');
-      if(!btn) return;
-      setActiveTab(btn.dataset.cat);
-    });
-
-    // --- Search/Filter
-    searchInput.addEventListener('input', applyFilters);
-    function applyFilters(){
-      const activeCat=(categoryTabs.querySelector('.tab.active')?.dataset.cat)||'all';
-      const term=searchInput.value.trim().toLowerCase();
-      grid.querySelectorAll('.card').forEach(card=>{
-        const inCat=(activeCat==='all') || (card.dataset.cat===activeCat);
-        const text=(card.innerText||'').toLowerCase();
-        const match=!term || text.includes(term);
-        card.style.display=(inCat && match)?'':'none';
-      });
-    }
-
-    // --- Modal open/close
-    pluginBtn.onclick=()=>{
-      populateCategorySelect();
-      document.getElementById('plugin-title').textContent='플러그인 추가';
-      pluginDelete.style.display='none';
-      openModal();
-      // 아이콘 리스트 최신 렌더
-      renderIcons();
-    };
-    pluginCancel.onclick=closeModal;
-    pluginClose.onclick=closeModal;
-    overlay.onclick=(e)=>{ if(e.target===overlay) closeModal(); };
-
-    // --- Icons (emoji + uploaded)
+    // 이모지 아이콘
     const icons=['🔊','🖼️','📚','🌐','💬','📑','🧩','⚙️','🔒','📊','📈','📝','📂','📡','📺','🎧','🎤','📷','🖊️','🗂️'];
 
     function renderIcons(){
       iconPicker.innerHTML='';
       icons.forEach(ic=>{
         const el=document.createElement('div');
-        el.className='pick';
-        if(typeof ic==='string' && ic.startsWith('data:')){
-          el.innerHTML=`<img src="${ic}" alt="icon">`;
-        }else{
-          el.textContent=ic;
-        }
+        el.className='pick'; el.textContent=ic;
         el.onclick=()=>{
           document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));
           el.classList.add('active');
@@ -313,153 +196,56 @@
         iconPicker.appendChild(el);
       });
     }
-    renderIcons();
 
-    // 파일 업로드 → Base64 DataURL 추가
-    btnUploadIcon.onclick=()=>iconFile.click();
-    iconFile.onchange=(e)=>{
-      const file=e.target.files?.[0];
-      if(!file) return;
-      // Firestore 문서 크기 제한을 고려해 300KB 초과시 경고 (선택)
-      const MAX=300*1024;
-      if(file.size>MAX){ showToast('이미지 용량이 커요(300KB 이하 권장)'); }
-      const reader=new FileReader();
-      reader.onload=(evt)=>{
-        const dataURL=evt.target.result;
-        icons.push(dataURL);
-        renderIcons();
-        showToast('아이콘이 추가되었습니다');
-      };
-      reader.readAsDataURL(file);
-      // 같은 파일 다시 선택 가능하도록 초기화
-      e.target.value='';
-    };
+    // UI
+    function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}
+    function openModal(){overlay.style.display='block';pluginModal.style.display='block'}
+    function closeModal(){overlay.style.display='none';pluginModal.style.display='none';editingId=null;clearForm();}
+    function clearForm(){nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';selectedIcon=null;document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));if(categorySelect.options.length) categorySelect.selectedIndex=0;}
 
-    // --- Card render & edit
+    // Category
+    function populateCategorySelect(){
+      categorySelect.innerHTML='';
+      [...defaultCategories,...customCategories].forEach(c=>{
+        const opt=document.createElement('option');opt.value=c.id;opt.textContent=c.label;categorySelect.appendChild(opt);
+      });
+      const opt=document.createElement('option');opt.value='__new__';opt.textContent='새 분류 추가';categorySelect.appendChild(opt);
+    }
+    function addCategoryTab(id,label){
+      const tab=document.createElement('button');tab.className='tab custom';tab.dataset.cat=id;tab.textContent=label;
+      const remove=document.createElement('button');remove.className='remove';remove.textContent='×';
+      remove.onclick=(e)=>{e.stopPropagation();if(!isAdmin) return;customCategories=customCategories.filter(c=>c.id!==id);tab.remove();populateCategorySelect();setActiveTab('all');};
+      tab.appendChild(remove);categoryTabs.appendChild(tab);
+    }
+    function setActiveTab(cat){[...categoryTabs.querySelectorAll('.tab')].forEach(t=>t.classList.toggle('active',t.dataset.cat===cat));applyFilters();}
+    categoryTabs.addEventListener('click',(e)=>{const btn=e.target.closest('.tab');if(!btn) return;setActiveTab(btn.dataset.cat);});
+    searchInput.addEventListener('input', applyFilters);
+    function applyFilters(){const activeCat=(categoryTabs.querySelector('.tab.active')?.dataset.cat)||'all';const term=searchInput.value.trim().toLowerCase();grid.querySelectorAll('.card').forEach(card=>{const inCat=(activeCat==='all')||(card.dataset.cat===activeCat);const text=(card.innerText||'').toLowerCase();const match=!term||text.includes(term);card.style.display=(inCat&&match)?'':'none';});}
+
+    // Modal
+    pluginBtn.onclick=()=>{populateCategorySelect();document.getElementById('plugin-title').textContent='플러그인 추가';pluginDelete.style.display='none';renderIcons();openModal();};
+    pluginCancel.onclick=closeModal; pluginClose.onclick=closeModal; overlay.onclick=(e)=>{if(e.target===overlay) closeModal();};
+
+    // Card
     function renderCard(id,data){
-      const card=document.createElement('article');
-      card.className='card';
-      if(isAdmin) card.classList.add('admin');
-      card.dataset.id=id;
-      card.dataset.cat=data.cat;
-      card.dataset.link=data.link;
-      const iconHTML = (data.icon && typeof data.icon==='string' && data.icon.startsWith('data:'))
-        ? `<img src="${data.icon}" alt="icon">`
-        : (data.icon||'');
-      card.innerHTML=`
-        <div class='icon'>${iconHTML}</div>
-        <div class='title-sm'>${data.name}</div>
-        <div class='desc'>${data.desc}</div>
-        ${data.format?`<div class='subdesc'>지원 포맷: ${data.format}</div>`:''}
-        <button class='edit-btn'>✏️</button>
-      `;
-      // 링크 이동 (iframe sandbox에 따라 팝업이 막힐 수 있음)
+      const card=document.createElement('article');card.className='card';if(isAdmin) card.classList.add('admin');card.dataset.id=id;card.dataset.cat=data.cat;card.dataset.link=data.link;
+      card.innerHTML=`<div class='icon'>${data.icon||''}</div><div class='title-sm'>${data.name}</div><div class='desc'>${data.desc}</div>${data.format?`<div class='subdesc'>지원 포맷: ${data.format}</div>`:''}<button class='edit-btn'>✏️</button>`;
       card.onclick=()=>window.open(card.dataset.link,'_blank');
-
       const editBtn=card.querySelector('.edit-btn');
-      editBtn.onclick=(e)=>{
-        e.stopPropagation();
-        if(!isAdmin) return;
-        editingId=id;
-
-        populateCategorySelect();
-        categorySelect.value=data.cat;
-        nameInput.value=data.name||'';
-        descInput.value=data.desc||'';
-        linkInput.value=data.link||'';
-        formatInput.value=data.format||'';
-
-        // 아이콘 복원: 목록에 없으면 추가 후 선택
-        selectedIcon=data.icon||null;
-        if(selectedIcon && !icons.includes(selectedIcon)){
-          icons.push(selectedIcon);
-        }
-        renderIcons();
-        if(selectedIcon){
-          const picks=[...document.querySelectorAll('.pick')];
-          picks.forEach(p=>{
-            const isImg = p.querySelector('img');
-            const match = isImg ? (isImg.src===selectedIcon) : (p.textContent===selectedIcon);
-            p.classList.toggle('active', match);
-          });
-        }
-
-        document.getElementById('plugin-title').textContent='플러그인 수정';
-        pluginDelete.style.display='inline-block';
-        openModal();
-      };
-
+      editBtn.onclick=(e)=>{e.stopPropagation();if(!isAdmin) return;editingId=id;populateCategorySelect();categorySelect.value=data.cat;nameInput.value=data.name;descInput.value=data.desc;linkInput.value=data.link||'';formatInput.value=data.format||'';selectedIcon=data.icon||null;renderIcons();if(selectedIcon){[...document.querySelectorAll('.pick')].forEach(p=>p.classList.toggle('active',p.textContent===selectedIcon));}document.getElementById('plugin-title').textContent='플러그인 수정';pluginDelete.style.display='inline-block';openModal();};
       grid.appendChild(card);
     }
 
-    // --- Firestore live
-    onSnapshot(collection(db,"plugins"),(snap)=>{
-      grid.innerHTML='';
-      snap.forEach(d=>renderCard(d.id,d.data()));
-      // 관리자 표시 반영
-      grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));
-      applyFilters();
-    });
+    onSnapshot(collection(db,"plugins"),(snap)=>{grid.innerHTML='';snap.forEach(d=>renderCard(d.id,d.data()));grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));applyFilters();});
 
-    // --- Save / Delete
-    pluginSave.onclick=async()=>{
-      const plugin={
-        cat:categorySelect.value,
-        name:nameInput.value.trim(),
-        desc:descInput.value.trim(),
-        link:linkInput.value.trim(),
-        format:formatInput.value.trim(),
-        icon:selectedIcon
-      };
-      if(!plugin.cat||!plugin.name||!plugin.desc||!plugin.link){
-        showToast('필수 입력 누락'); return;
-      }
-      try{
-        if(editingId){
-          await updateDoc(doc(db,'plugins',editingId), plugin);
-          showToast('수정 완료');
-        }else{
-          await addDoc(collection(db,'plugins'), plugin);
-          showToast('추가 완료');
-        }
-        closeModal();
-        document.getElementById('plugin-title').textContent='플러그인 추가';
-      }catch(e){
-        console.error(e);
-        showToast('저장 중 오류 발생');
-      }
-    };
+    // Save/Delete
+    pluginSave.onclick=async()=>{const plugin={cat:categorySelect.value,name:nameInput.value.trim(),desc:descInput.value.trim(),link:linkInput.value.trim(),format:formatInput.value.trim(),icon:selectedIcon};if(!plugin.cat||!plugin.name||!plugin.desc||!plugin.link){showToast('필수 입력 누락');return;}try{if(editingId){await updateDoc(doc(db,'plugins',editingId),plugin);showToast('수정 완료');}else{await addDoc(collection(db,'plugins'),plugin);showToast('추가 완료');}closeModal();document.getElementById('plugin-title').textContent='플러그인 추가';}catch(e){console.error(e);showToast('저장 중 오류 발생');}};
+    pluginDelete.onclick=async()=>{if(!editingId) return;if(confirm("정말 이 플러그인을 삭제하시겠습니까?")){try{await deleteDoc(doc(db,'plugins',editingId));showToast("삭제 완료");closeModal();}catch(e){console.error(e);showToast("삭제 중 오류 발생");}}};
 
-    pluginDelete.onclick=async()=>{
-      if(!editingId) return;
-      if(confirm('정말 이 플러그인을 삭제하시겠습니까?')){
-        try{
-          await deleteDoc(doc(db,'plugins',editingId));
-          showToast('삭제 완료');
-          closeModal();
-        }catch(e){
-          console.error(e);
-          showToast('삭제 중 오류 발생');
-        }
-      }
-    };
+    // Admin toggle
+    switchEl.onclick=()=>{switchEl.classList.toggle('active');isAdmin=switchEl.classList.contains('active');pluginBtn.style.display=isAdmin?'inline-block':'none';grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));document.querySelectorAll('.tab.custom').forEach(tab=>{if(isAdmin){tab.classList.add('admin');}else{tab.classList.remove('admin');}});};
 
-    // --- Admin/User toggle
-    switchEl.onclick=()=>{
-      switchEl.classList.toggle('active');
-      isAdmin=switchEl.classList.contains('active');
-      pluginBtn.style.display=isAdmin?'inline-block':'none';
-      grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));
-      document.querySelectorAll('.tab.custom').forEach(tab=>{
-        if(isAdmin) tab.classList.add('admin'); else tab.classList.remove('admin');
-      });
-    };
-
-    // --- Init
-    function initTabsActive(){ setActiveTab('all'); }
-    populateCategorySelect();
-    renderIcons();
-    initTabsActive();
+    populateCategorySelect();renderIcons();setActiveTab('all');
   </script>
 </body>
 </html>
