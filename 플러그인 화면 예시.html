@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>부가기능 더보기</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --primary:#004884;
+      --sub1:#0069b4;
+      --sub2:#09bbef;
+      --ink:#1f2a37;
+      --muted:#6b7280;
+      --bg:#f6f8fb;
+      --card:#ffffff;
+      --bd:#e5e7eb;
+    }
+    body{margin:0;font-family:Inter, Pretendard, sans-serif;background:var(--bg);color:var(--ink)}
+    .topbar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--bd)}
+    .topbar-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px;padding:14px 16px}
+    .title{font-size:22px;font-weight:800;color:var(--primary)}
+    .spacer{flex:1}
+    .mode{display:flex;align-items:center;gap:10px}
+    .mode label{font-size:12px;color:#334155;font-weight:700}
+    .switch{position:relative;width:58px;height:28px;background:#e5eef7;border-radius:999px;cursor:pointer;border:2px solid #cfe3f7}
+    .knob{position:absolute;top:50%;left:2px;transform:translateY(-50%);width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--sub2),#7fe6ff);box-shadow:0 2px 8px rgba(0,72,132,.25);transition:left .2s ease}
+    .switch.active{background:linear-gradient(135deg,var(--sub1),var(--primary));border-color:#6fb7ff}
+    .switch.active .knob{left:30px;background:#fff}
+    .btn{border:none;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn-outline{border:2px solid var(--sub1);background:#fff;color:var(--sub1)}
+    .btn-primary{color:#fff;background:linear-gradient(135deg,var(--sub1),var(--primary))}
+    .controls{max-width:1100px;margin:14px auto;display:flex;gap:12px;align-items:center;padding:0 16px}
+    .search{position:relative;flex:1}
+    .search input{width:100%;padding:12px 14px 12px 40px;border:2px solid var(--primary);border-radius:12px;font-size:14px;outline:none}
+    .search svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);opacity:.8}
+    .tabs{max-width:1100px;margin:0 auto 18px;display:flex;gap:16px;padding:0 16px;flex-wrap:wrap}
+    .tab{background:none;border:none;color:var(--primary);font-weight:700;padding:10px 2px;cursor:pointer;position:relative}
+    .tab.active{color:var(--sub1);border-bottom:3px solid var(--sub2)}
+    .tab .remove{display:none;position:absolute;top:-6px;right:-6px;background:#f43f5e;color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:12px;cursor:pointer}
+    .tab.custom.admin .remove{display:inline-block}
+    .grid{max-width:1100px;margin:0 auto;padding:0 16px 60px;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+    .card{position:relative;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:18px;box-shadow:0 4px 14px rgba(0,0,0,.06);transition:transform .18s ease;cursor:pointer}
+    .card:hover{transform:translateY(-4px)}
+    .icon{width:40px;height:40px;border-radius:10px;background:#eef7ff;display:grid;place-items:center;color:var(--primary);font-size:20px;margin-bottom:10px;overflow:hidden}
+    .title-sm{font-weight:800;color:var(--sub1)}
+    .desc{font-size:13px;color:#4b5563;line-height:1.45}
+    .subdesc{font-size:12px;color:#6b7280;margin-top:6px}
+    .edit-btn{display:none;position:absolute;right:10px;bottom:10px;background:#fff;border:1px solid #cfe3f7;border-radius:8px;padding:6px 8px;color:#0b4674;font-weight:800}
+    .card.admin .edit-btn{display:inline-block}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:50}
+    .modal{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(720px,94vw);background:#fff;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.25);display:none;z-index:60}
+    .modal header{padding:16px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center}
+    .modal header h3{margin:0;font-size:18px;color:var(--primary)}
+    .modal .content{padding:16px 20px}
+    .modal .footer{padding:14px 20px;border-top:1px solid var(--bd);display:flex;gap:10px;justify-content:flex-end}
+    .close-x{margin-left:auto;background:none;border:none;font-size:20px;cursor:pointer;color:var(--muted)}
+    .field{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+    .field label{font-weight:700;color:#0f172a}
+    .field label .req{color:#f43f5e;margin-left:4px}
+    .field input,.field textarea,.field select{padding:10px;border:2px solid var(--bd);border-radius:10px}
+    .picker{display:grid;grid-template-columns:repeat(10,40px);gap:8px}
+    .pick{width:40px;height:40px;border:2px solid #d7e6f5;border-radius:10px;display:grid;place-items:center;cursor:pointer}
+    .pick.active{border-color:var(--primary)}
+    .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 16px;border-radius:10px;background:linear-gradient(135deg,var(--sub2),#7fe6ff);color:#003a5e;font-weight:800;opacity:0;pointer-events:none;transition:.25s;z-index:80}
+    .toast.show{opacity:1}
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="title">부가기능 더보기</div>
+      <div class="mode" id="mode-toggle">
+        <label>사용자</label>
+        <div class="switch" id="switch"><div class="knob"></div></div>
+        <label>관리자</label>
+      </div>
+      <div class="spacer"></div>
+      <button class="btn btn-outline" id="btn-open-plugin" style="display:none">플러그인 추가</button>
+    </div>
+  </div>
+  <div class="controls">
+    <div class="search">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path d="M11 19a8 8 0 1 1 5.293-14.293A8 8 0 0 1 11 19Zm10 2-5.4-5.4" stroke="#004884" stroke-width="2" stroke-linecap="round"/></svg>
+      <input id="search" placeholder="기능 검색" />
+    </div>
+  </div>
+  <div class="tabs" id="category-tabs">
+    <button class="tab active" data-cat="all">전체</button>
+    <button class="tab" data-cat="chat">AI 채팅</button>
+    <button class="tab" data-cat="work">AI 업무지원</button>
+    <button class="tab" data-cat="translate">AI 번역</button>
+    <button class="tab" data-cat="image">AI 이미지</button>
+    <button class="tab" data-cat="policy">사내규정검색</button>
+    <button class="tab" data-cat="law">법령검색</button>
+  </div>
+  <div class="grid" id="grid"></div>
+
+  <div class="overlay" id="overlay"></div>
+  <section class="modal" id="plugin-modal">
+    <header>
+      <h3 id="plugin-title">플러그인 추가</h3>
+      <button class="close-x" id="plugin-close">✕</button>
+    </header>
+    <div class="content">
+      <div class="field">
+        <label>아이콘 선택</label>
+        <div class="picker" id="icon-picker"></div>
+      </div>
+      <div class="field">
+        <label>분류 <span class="req">*</span></label>
+        <select id="plugin-category"></select>
+      </div>
+      <div class="field">
+        <label>기능 명 <span class="req">*</span></label>
+        <input type="text" id="plugin-name">
+      </div>
+      <div class="field">
+        <label>설명 <span class="req">*</span></label>
+        <textarea id="plugin-desc"></textarea>
+      </div>
+      <div class="field">
+        <label>링크 <span class="req">*</span></label>
+        <input type="url" id="plugin-link">
+      </div>
+      <div class="field">
+        <label>지원 파일 포맷</label>
+        <input type="text" id="plugin-format" placeholder="예: mp3, m4a">
+      </div>
+    </div>
+    <div class="footer">
+      <button class="btn btn-outline" id="plugin-cancel">취소</button>
+      <button class="btn btn-primary" id="plugin-save">저장</button>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const overlay=document.getElementById('overlay');
+    const pluginModal=document.getElementById('plugin-modal');
+    const pluginBtn=document.getElementById('btn-open-plugin');
+    const pluginSave=document.getElementById('plugin-save');
+    const pluginCancel=document.getElementById('plugin-cancel');
+    const pluginClose=document.getElementById('plugin-close');
+    const categorySelect=document.getElementById('plugin-category');
+    const nameInput=document.getElementById('plugin-name');
+    const descInput=document.getElementById('plugin-desc');
+    const linkInput=document.getElementById('plugin-link');
+    const formatInput=document.getElementById('plugin-format');
+    const grid=document.getElementById('grid');
+    const toast=document.getElementById('toast');
+    const iconPicker=document.getElementById('icon-picker');
+
+    const switchEl=document.getElementById('switch');
+    let isAdmin=false;
+    let selectedIcon=null;
+    let editingCard=null;
+
+    const defaultCategories=[
+      {id:'chat',label:'AI 채팅'},
+      {id:'work',label:'AI 업무지원'},
+      {id:'translate',label:'AI 번역'},
+      {id:'image',label:'AI 이미지'},
+      {id:'policy',label:'사내규정검색'},
+      {id:'law',label:'법령검색'}
+    ];
+    let customCategories=[];
+
+    function populateCategorySelect(){
+      categorySelect.innerHTML='';
+      [...defaultCategories,...customCategories].forEach(c=>{
+        const opt=document.createElement('option');
+        opt.value=c.id; opt.textContent=c.label;
+        categorySelect.appendChild(opt);
+      });
+      const opt=document.createElement('option');
+      opt.value='__new__'; opt.textContent='새 분류 추가';
+      categorySelect.appendChild(opt);
+    }
+
+    categorySelect.addEventListener('change',()=>{
+      if(categorySelect.value==='__new__'){
+        const val=prompt('새 분류명을 입력하세요:');
+        if(val){
+          const id=val.toLowerCase().replace(/\\s+/g,'-');
+          customCategories.push({id,label:val});
+          populateCategorySelect();
+          categorySelect.value=id;
+          const tab=document.createElement('button');
+          tab.className='tab custom'; tab.dataset.cat=id; tab.textContent=val;
+          const remove=document.createElement('button');
+          remove.className='remove'; remove.textContent='×';
+          remove.onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;customCategories=customCategories.filter(c=>c.id!==id);tab.remove();populateCategorySelect();};
+          tab.appendChild(remove);
+          document.getElementById('category-tabs').appendChild(tab);
+        } else {
+          categorySelect.value=defaultCategories[0].id;
+        }
+      }
+    });
+
+    function openModal(){overlay.style.display='block';pluginModal.style.display='block'}
+    function closeModal(){overlay.style.display='none';pluginModal.style.display='none';editingCard=null;clearForm();}
+
+    function clearForm(){nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';selectedIcon=null;document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'))}
+
+    function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}
+
+    pluginBtn.onclick=()=>{populateCategorySelect();openModal()};
+    pluginCancel.onclick=closeModal;
+    pluginClose.onclick=closeModal;
+    overlay.onclick=closeModal;
+
+    pluginSave.onclick=()=>{
+      const cat=categorySelect.value;
+      const name=nameInput.value;
+      const desc=descInput.value;
+      const link=linkInput.value;
+      const format=formatInput.value;
+      if(!cat||!name||!desc||!link){showToast('필수 입력 항목 누락');return;}
+      if(editingCard){
+        editingCard.dataset.cat=cat;
+        editingCard.dataset.link=link;
+        editingCard.querySelector('.title-sm').textContent=name;
+        editingCard.querySelector('.desc').textContent=desc;
+        let sub=editingCard.querySelector('.subdesc');
+        if(format){if(!sub){sub=document.createElement('div');sub.className='subdesc';editingCard.appendChild(sub);}sub.textContent=`지원 포맷: ${format}`;}else if(sub){sub.remove();}
+        editingCard.querySelector('.icon').textContent=selectedIcon||'';
+        editingCard.onclick=()=>window.open(editingCard.dataset.link,'_blank');
+        showToast('수정 완료');
+      } else {
+        const card=document.createElement('article');
+        card.className='card';
+        card.dataset.cat=cat;
+        card.dataset.link=link;
+        card.innerHTML=`<div class='icon'>${selectedIcon||''}</div><div class='title-sm'>${name}</div><div class='desc'>${desc}</div>${format?`<div class='subdesc'>지원 포맷: ${format}</div>`:''}<button class='edit-btn'>✏️</button>`;
+        card.onclick=()=>window.open(card.dataset.link,'_blank');
+        card.querySelector('.edit-btn').onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;openEdit(card);};
+        grid.appendChild(card);
+        showToast('추가 완료');
+      }
+      closeModal();
+    };
+
+    function openEdit(card){
+      editingCard=card;
+      populateCategorySelect();
+      categorySelect.value=card.dataset.cat;
+      nameInput.value=card.querySelector('.title-sm').textContent;
+      descInput.value=card.querySelector('.desc').textContent;
+      linkInput.value=card.dataset.link||'';
+      formatInput.value=card.querySelector('.subdesc')?.textContent.replace('지원 포맷: ','')||'';
+      selectedIcon=card.querySelector('.icon').textContent;
+      document.querySelectorAll('.pick').forEach(p=>p.classList.toggle('active',p.textContent===selectedIcon));
+      openModal();
+    }
+
+    const icons=['🔊','🖼️','📚','🌐','💬','📑','🧩','⚙️','🔒','📊','📈','📝','📂','📡','📺','🎧','🎤','📷','🖊️','🗂️'];
+    icons.forEach(ic=>{
+      const el=document.createElement('div');el.className='pick';el.textContent=ic;
+      el.onclick=()=>{document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));el.classList.add('active');selectedIcon=ic;};
+      iconPicker.appendChild(el);
+    });
+
+    switchEl.onclick=()=>{
+      switchEl.classList.toggle('active');
+      isAdmin=switchEl.classList.contains('active');
+      pluginBtn.style.display=isAdmin?'inline-block':'none';
+      grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));
+      document.querySelectorAll('.tab.custom').forEach(tab=>{
+        if(isAdmin){tab.classList.add('admin');}else{tab.classList.remove('admin');}
+      });
+    };
+
+    populateCategorySelect();
+  </script>
+</body>
+</html>
