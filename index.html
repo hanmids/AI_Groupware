@@ -131,8 +131,9 @@
       </div>
     </div>
     <div class="footer">
-      <button class="btn btn-outline" id="plugin-cancel">취소</button>
       <button class="btn btn-primary" id="plugin-save">저장</button>
+      <button class="btn btn-outline" id="plugin-delete" style="display:none;color:#f43f5e;border-color:#f43f5e">삭제</button>
+      <button class="btn btn-outline" id="plugin-cancel">취소</button>
     </div>
   </section>
 
@@ -141,10 +142,9 @@
   <!-- ✅ Firebase SDK + Firestore -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, addDoc, doc, updateDoc, onSnapshot } 
+    import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } 
       from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 👉 본인 Firebase 콘솔에서 복사한 설정
     const firebaseConfig = {
       apiKey: "AIzaSyCbDFAGaavZP2a2cv14kB8WLEsiwAXMH84",
       authDomain: "groupware-test-8586b.firebaseapp.com",
@@ -157,7 +157,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- UI 요소 ---
     const grid=document.getElementById('grid');
     const categoryTabs=document.getElementById('category-tabs');
     const searchInput=document.getElementById('search');
@@ -167,6 +166,7 @@
     const pluginSave=document.getElementById('plugin-save');
     const pluginCancel=document.getElementById('plugin-cancel');
     const pluginClose=document.getElementById('plugin-close');
+    const pluginDelete=document.getElementById('plugin-delete');
     const categorySelect=document.getElementById('plugin-category');
     const nameInput=document.getElementById('plugin-name');
     const descInput=document.getElementById('plugin-desc');
@@ -177,7 +177,7 @@
     const switchEl=document.getElementById('switch');
 
     let isAdmin=false, selectedIcon=null;
-    let editingId=null; // Firestore doc id for edit
+    let editingId=null;
 
     const defaultCategories=[
       {id:'chat',label:'AI 채팅'},
@@ -189,28 +189,17 @@
     ];
     let customCategories=[];
 
-    // ---------- 공통 유틸 ----------
     function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}
     function openModal(){overlay.style.display='block';pluginModal.style.display='block'}
     function closeModal(){overlay.style.display='none';pluginModal.style.display='none';editingId=null;clearForm();}
-    function clearForm(){
-      nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';
-      selectedIcon=null;document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));
-      // 분류 기본값
-      if(categorySelect.options.length) categorySelect.selectedIndex=0;
-    }
+    function clearForm(){nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';selectedIcon=null;document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));if(categorySelect.options.length) categorySelect.selectedIndex=0;}
 
-    // ---------- 카테고리 드롭다운 + 탭 ----------
     function populateCategorySelect(){
       categorySelect.innerHTML='';
       [...defaultCategories,...customCategories].forEach(c=>{
-        const opt=document.createElement('option');
-        opt.value=c.id; opt.textContent=c.label;
-        categorySelect.appendChild(opt);
+        const opt=document.createElement('option');opt.value=c.id;opt.textContent=c.label;categorySelect.appendChild(opt);
       });
-      const opt=document.createElement('option');
-      opt.value='__new__'; opt.textContent='새 분류 추가';
-      categorySelect.appendChild(opt);
+      const opt=document.createElement('option');opt.value='__new__';opt.textContent='새 분류 추가';categorySelect.appendChild(opt);
     }
 
     categorySelect.addEventListener('change',()=>{
@@ -218,9 +207,8 @@
         const val=prompt('새 분류명을 입력하세요:');
         if(val && val.trim()){
           const id=val.trim().toLowerCase().replace(/\s+/g,'-');
-          // 중복 방지
           if([...defaultCategories,...customCategories].some(c=>c.id===id)){
-            showToast('이미 존재하는 분류입니다'); categorySelect.value=defaultCategories[0].id; return;
+            showToast('이미 존재하는 분류입니다');categorySelect.value=defaultCategories[0].id;return;
           }
           customCategories.push({id,label:val.trim()});
           populateCategorySelect();
@@ -233,156 +221,57 @@
     });
 
     function addCategoryTab(id,label){
-      const tab=document.createElement('button');
-      tab.className='tab custom'; tab.dataset.cat=id; tab.textContent=label;
-      const remove=document.createElement('button');
-      remove.className='remove'; remove.textContent='×';
-      remove.onclick=(e)=>{
-        e.stopPropagation();
-        if(!isAdmin) return;
-        customCategories=customCategories.filter(c=>c.id!==id);
-        tab.remove();
-        populateCategorySelect();
-        setActiveTab('all');
-      };
-      tab.appendChild(remove);
-      categoryTabs.appendChild(tab);
+      const tab=document.createElement('button');tab.className='tab custom';tab.dataset.cat=id;tab.textContent=label;
+      const remove=document.createElement('button');remove.className='remove';remove.textContent='×';
+      remove.onclick=(e)=>{e.stopPropagation();if(!isAdmin) return;customCategories=customCategories.filter(c=>c.id!==id);tab.remove();populateCategorySelect();setActiveTab('all');};
+      tab.appendChild(remove);categoryTabs.appendChild(tab);
     }
 
     function setActiveTab(cat){
-      [...categoryTabs.querySelectorAll('.tab')].forEach(t=>{
-        t.classList.toggle('active',t.dataset.cat===cat);
-      });
+      [...categoryTabs.querySelectorAll('.tab')].forEach(t=>{t.classList.toggle('active',t.dataset.cat===cat);});
       applyFilters();
     }
 
-    categoryTabs.addEventListener('click',(e)=>{
-      const btn=e.target.closest('.tab');
-      if(!btn) return;
-      setActiveTab(btn.dataset.cat);
-    });
-
+    categoryTabs.addEventListener('click',(e)=>{const btn=e.target.closest('.tab');if(!btn) return;setActiveTab(btn.dataset.cat);});
     searchInput.addEventListener('input', applyFilters);
 
     function applyFilters(){
       const activeCat=(categoryTabs.querySelector('.tab.active')?.dataset.cat)||'all';
       const term=searchInput.value.trim().toLowerCase();
       grid.querySelectorAll('.card').forEach(card=>{
-        const inCat = (activeCat==='all') || (card.dataset.cat===activeCat);
-        const text = (card.innerText||'').toLowerCase();
-        const match = !term || text.includes(term);
-        card.style.display = (inCat && match) ? '' : 'none';
+        const inCat=(activeCat==='all')||(card.dataset.cat===activeCat);
+        const text=(card.innerText||'').toLowerCase();
+        const match=!term||text.includes(term);
+        card.style.display=(inCat&&match)?'':'none';
       });
     }
 
-    // ---------- 모달 열기/닫기 ----------
-    pluginBtn.onclick=()=>{populateCategorySelect();openModal()};
+    pluginBtn.onclick=()=>{populateCategorySelect();document.getElementById('plugin-title').textContent='플러그인 추가';pluginDelete.style.display='none';openModal();};
     pluginCancel.onclick=closeModal;
     pluginClose.onclick=closeModal;
     overlay.onclick=closeModal;
 
-    // ---------- 아이콘 선택 ----------
     const icons=['🔊','🖼️','📚','🌐','💬','📑','🧩','⚙️','🔒','📊','📈','📝','📂','📡','📺','🎧','🎤','📷','🖊️','🗂️'];
-    icons.forEach(ic=>{
-      const el=document.createElement('div');el.className='pick';el.textContent=ic;
-      el.onclick=()=>{document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));el.classList.add('active');selectedIcon=ic;};
-      iconPicker.appendChild(el);
-    });
+    icons.forEach(ic=>{const el=document.createElement('div');el.className='pick';el.textContent=ic;el.onclick=()=>{document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'));el.classList.add('active');selectedIcon=ic;};iconPicker.appendChild(el);});
 
-    // ---------- 카드 렌더링 & 편집 ----------
     function renderCard(id,data){
-      const card=document.createElement('article');
-      card.className='card';
-      if(isAdmin) card.classList.add('admin');
-      card.dataset.id=id;
-      card.dataset.cat=data.cat;
-      card.dataset.link=data.link;
-      card.innerHTML=`<div class='icon'>${data.icon||''}</div>
-        <div class='title-sm'>${data.name}</div>
-        <div class='desc'>${data.desc}</div>
-        ${data.format?`<div class='subdesc'>지원 포맷: ${data.format}</div>`:''}
-        <button class='edit-btn'>✏️</button>`;
-      // 링크 이동(iframe에서도 새 탭). 부모에서 sandbox로 팝업 막아두면 차단될 수 있음
+      const card=document.createElement('article');card.className='card';if(isAdmin) card.classList.add('admin');card.dataset.id=id;card.dataset.cat=data.cat;card.dataset.link=data.link;
+      card.innerHTML=`<div class='icon'>${data.icon||''}</div><div class='title-sm'>${data.name}</div><div class='desc'>${data.desc}</div>${data.format?`<div class='subdesc'>지원 포맷: ${data.format}</div>`:''}<button class='edit-btn'>✏️</button>`;
       card.onclick=()=>window.open(card.dataset.link,'_blank');
-
-      // 연필 아이콘 편집
-      const editBtn = card.querySelector('.edit-btn');
-      editBtn.onclick=(e)=>{
-        e.stopPropagation();
-        if(!isAdmin) return;
-        // 기존 값 세팅
-        editingId=id;
-        populateCategorySelect();
-        categorySelect.value=data.cat;
-        nameInput.value=data.name;
-        descInput.value=data.desc;
-        linkInput.value=data.link||'';
-        formatInput.value=data.format||'';
-        selectedIcon=data.icon||null;
-        document.querySelectorAll('.pick').forEach(p=>p.classList.toggle('active',p.textContent===selectedIcon));
-        document.getElementById('plugin-title').textContent='플러그인 수정';
-        openModal();
-      };
-
+      const editBtn=card.querySelector('.edit-btn');
+      editBtn.onclick=(e)=>{e.stopPropagation();if(!isAdmin) return;editingId=id;populateCategorySelect();categorySelect.value=data.cat;nameInput.value=data.name;descInput.value=data.desc;linkInput.value=data.link||'';formatInput.value=data.format||'';selectedIcon=data.icon||null;document.querySelectorAll('.pick').forEach(p=>p.classList.toggle('active',p.textContent===selectedIcon));document.getElementById('plugin-title').textContent='플러그인 수정';pluginDelete.style.display='inline-block';openModal();};
       grid.appendChild(card);
     }
 
-    // ---------- Firestore: 실시간 구독 ----------
-    const unsub = onSnapshot(collection(db,"plugins"), (snap)=>{
-      // 화면 재구성
-      grid.innerHTML='';
-      snap.forEach(d=>renderCard(d.id,d.data()));
-      applyFilters();
-    });
+    onSnapshot(collection(db,"plugins"),(snap)=>{grid.innerHTML='';snap.forEach(d=>renderCard(d.id,d.data()));applyFilters();});
 
-    // ---------- 저장(추가/수정) ----------
-    pluginSave.onclick=async()=>{
-      const plugin={
-        cat:categorySelect.value,
-        name:nameInput.value.trim(),
-        desc:descInput.value.trim(),
-        link:linkInput.value.trim(),
-        format:formatInput.value.trim(),
-        icon:selectedIcon
-      };
-      if(!plugin.cat||!plugin.name||!plugin.desc||!plugin.link){
-        showToast('필수 입력 누락'); return;
-      }
-      try{
-        if(editingId){
-          await updateDoc(doc(db,'plugins',editingId), plugin);
-          showToast('수정 완료');
-        }else{
-          await addDoc(collection(db,'plugins'), plugin);
-          showToast('추가 완료');
-        }
-        closeModal();
-        document.getElementById('plugin-title').textContent='플러그인 추가';
-      }catch(e){
-        console.error(e);
-        showToast('저장 중 오류가 발생했습니다');
-      }
-    };
+    pluginSave.onclick=async()=>{const plugin={cat:categorySelect.value,name:nameInput.value.trim(),desc:descInput.value.trim(),link:linkInput.value.trim(),format:formatInput.value.trim(),icon:selectedIcon};if(!plugin.cat||!plugin.name||!plugin.desc||!plugin.link){showToast('필수 입력 누락');return;}try{if(editingId){await updateDoc(doc(db,'plugins',editingId),plugin);showToast('수정 완료');}else{await addDoc(collection(db,'plugins'),plugin);showToast('추가 완료');}closeModal();document.getElementById('plugin-title').textContent='플러그인 추가';}catch(e){console.error(e);showToast('저장 중 오류 발생');}};
 
-    // ---------- 관리자 모드 ----------
-    switchEl.onclick=()=>{
-      switchEl.classList.toggle('active');
-      isAdmin=switchEl.classList.contains('active');
-      pluginBtn.style.display=isAdmin?'inline-block':'none';
-      // 카드에 관리자 표시 토글
-      grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));
-      // 커스텀 탭의 X 버튼 표시 토글
-      document.querySelectorAll('.tab.custom').forEach(tab=>{
-        if(isAdmin){tab.classList.add('admin');}else{tab.classList.remove('admin');}
-      });
-    };
+    pluginDelete.onclick=async()=>{if(!editingId) return;if(confirm("정말 이 플러그인을 삭제하시겠습니까?")){try{await deleteDoc(doc(db,'plugins',editingId));showToast("삭제 완료");closeModal();}catch(e){console.error(e);showToast("삭제 중 오류 발생");}}};
 
-    // ---------- 초기 세팅 ----------
-    // 기존 기본 카테고리 드롭다운 구성
-    populateCategorySelect();
+    switchEl.onclick=()=>{switchEl.classList.toggle('active');isAdmin=switchEl.classList.contains('active');pluginBtn.style.display=isAdmin?'inline-block':'none';grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));document.querySelectorAll('.tab.custom').forEach(tab=>{if(isAdmin){tab.classList.add('admin');}else{tab.classList.remove('admin');}});};
 
-    // 탭 클릭 기본값: 전체
-    setActiveTab('all');
+    populateCategorySelect();setActiveTab('all');
   </script>
 </body>
 </html>
