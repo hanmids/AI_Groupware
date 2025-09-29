@@ -135,10 +135,30 @@
 
   <div class="toast" id="toast"></div>
 
-  <script>
+  <!-- ✅ Firebase SDK + Firestore -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, onSnapshot } 
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 👉 본인 Firebase 콘솔에서 복사한 설정 붙여넣기
+    const firebaseConfig = {
+      apiKey: "AIzaSyCbDFAGaavZP2a2cv14kB8WLEsiwAXMH84",
+      authDomain: "groupware-test-8586b.firebaseapp.com",
+      projectId: "groupware-test-8586b",
+      storageBucket: "groupware-test-8586b.firebasestorage.app",
+      messagingSenderId: "748251845627",
+      appId: "1:748251845627:web:89aac61c2619860d95315e"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- UI 요소 ---
+    const grid=document.getElementById('grid');
+    const pluginBtn=document.getElementById('btn-open-plugin');
     const overlay=document.getElementById('overlay');
     const pluginModal=document.getElementById('plugin-modal');
-    const pluginBtn=document.getElementById('btn-open-plugin');
     const pluginSave=document.getElementById('plugin-save');
     const pluginCancel=document.getElementById('plugin-cancel');
     const pluginClose=document.getElementById('plugin-close');
@@ -147,14 +167,10 @@
     const descInput=document.getElementById('plugin-desc');
     const linkInput=document.getElementById('plugin-link');
     const formatInput=document.getElementById('plugin-format');
-    const grid=document.getElementById('grid');
     const toast=document.getElementById('toast');
     const iconPicker=document.getElementById('icon-picker');
-
     const switchEl=document.getElementById('switch');
-    let isAdmin=false;
-    let selectedIcon=null;
-    let editingCard=null;
+    let isAdmin=false, selectedIcon=null, editingCard=null;
 
     const defaultCategories=[
       {id:'chat',label:'AI 채팅'},
@@ -178,32 +194,10 @@
       categorySelect.appendChild(opt);
     }
 
-    categorySelect.addEventListener('change',()=>{
-      if(categorySelect.value==='__new__'){
-        const val=prompt('새 분류명을 입력하세요:');
-        if(val){
-          const id=val.toLowerCase().replace(/\\s+/g,'-');
-          customCategories.push({id,label:val});
-          populateCategorySelect();
-          categorySelect.value=id;
-          const tab=document.createElement('button');
-          tab.className='tab custom'; tab.dataset.cat=id; tab.textContent=val;
-          const remove=document.createElement('button');
-          remove.className='remove'; remove.textContent='×';
-          remove.onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;customCategories=customCategories.filter(c=>c.id!==id);tab.remove();populateCategorySelect();};
-          tab.appendChild(remove);
-          document.getElementById('category-tabs').appendChild(tab);
-        } else {
-          categorySelect.value=defaultCategories[0].id;
-        }
-      }
-    });
-
+    // --- 모달 ---
     function openModal(){overlay.style.display='block';pluginModal.style.display='block'}
     function closeModal(){overlay.style.display='none';pluginModal.style.display='none';editingCard=null;clearForm();}
-
     function clearForm(){nameInput.value='';descInput.value='';linkInput.value='';formatInput.value='';selectedIcon=null;document.querySelectorAll('.pick').forEach(p=>p.classList.remove('active'))}
-
     function showToast(msg){toast.textContent=msg;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1500)}
 
     pluginBtn.onclick=()=>{populateCategorySelect();openModal()};
@@ -211,50 +205,48 @@
     pluginClose.onclick=closeModal;
     overlay.onclick=closeModal;
 
-    pluginSave.onclick=()=>{
-      const cat=categorySelect.value;
-      const name=nameInput.value;
-      const desc=descInput.value;
-      const link=linkInput.value;
-      const format=formatInput.value;
-      if(!cat||!name||!desc||!link){showToast('필수 입력 항목 누락');return;}
-      if(editingCard){
-        editingCard.dataset.cat=cat;
-        editingCard.dataset.link=link;
-        editingCard.querySelector('.title-sm').textContent=name;
-        editingCard.querySelector('.desc').textContent=desc;
-        let sub=editingCard.querySelector('.subdesc');
-        if(format){if(!sub){sub=document.createElement('div');sub.className='subdesc';editingCard.appendChild(sub);}sub.textContent=`지원 포맷: ${format}`;}else if(sub){sub.remove();}
-        editingCard.querySelector('.icon').textContent=selectedIcon||'';
-        editingCard.onclick=()=>window.open(editingCard.dataset.link,'_blank');
-        showToast('수정 완료');
-      } else {
-        const card=document.createElement('article');
-        card.className='card';
-        card.dataset.cat=cat;
-        card.dataset.link=link;
-        card.innerHTML=`<div class='icon'>${selectedIcon||''}</div><div class='title-sm'>${name}</div><div class='desc'>${desc}</div>${format?`<div class='subdesc'>지원 포맷: ${format}</div>`:''}<button class='edit-btn'>✏️</button>`;
-        card.onclick=()=>window.open(card.dataset.link,'_blank');
-        card.querySelector('.edit-btn').onclick=(e)=>{e.stopPropagation();if(!isAdmin)return;openEdit(card);};
-        grid.appendChild(card);
-        showToast('추가 완료');
-      }
-      closeModal();
-    };
-
-    function openEdit(card){
-      editingCard=card;
-      populateCategorySelect();
-      categorySelect.value=card.dataset.cat;
-      nameInput.value=card.querySelector('.title-sm').textContent;
-      descInput.value=card.querySelector('.desc').textContent;
-      linkInput.value=card.dataset.link||'';
-      formatInput.value=card.querySelector('.subdesc')?.textContent.replace('지원 포맷: ','')||'';
-      selectedIcon=card.querySelector('.icon').textContent;
-      document.querySelectorAll('.pick').forEach(p=>p.classList.toggle('active',p.textContent===selectedIcon));
-      openModal();
+    // --- Firestore 연동 ---
+    async function savePluginToDB(plugin){
+      await addDoc(collection(db,"plugins"),plugin);
     }
 
+    async function loadPluginsFromDB(){
+      const snapshot=await getDocs(collection(db,"plugins"));
+      snapshot.forEach(doc=>renderCard(doc.id,doc.data()));
+    }
+
+    function renderCard(id,data){
+      const card=document.createElement('article');
+      card.className='card';
+      card.dataset.cat=data.cat;
+      card.dataset.link=data.link;
+      card.innerHTML=`<div class='icon'>${data.icon||''}</div>
+        <div class='title-sm'>${data.name}</div>
+        <div class='desc'>${data.desc}</div>
+        ${data.format?`<div class='subdesc'>지원 포맷: ${data.format}</div>`:''}
+        <button class='edit-btn'>✏️</button>`;
+      card.onclick=()=>window.open(card.dataset.link,'_blank');
+      grid.appendChild(card);
+    }
+
+    pluginSave.onclick=async()=>{
+      const plugin={
+        cat:categorySelect.value,
+        name:nameInput.value,
+        desc:descInput.value,
+        link:linkInput.value,
+        format:formatInput.value,
+        icon:selectedIcon
+      };
+      if(!plugin.cat||!plugin.name||!plugin.desc||!plugin.link){showToast('필수 입력 누락');return;}
+      await savePluginToDB(plugin);
+      showToast('저장 완료');
+      closeModal();
+      grid.innerHTML=''; // 기존 화면 초기화 후
+      loadPluginsFromDB(); // DB 다시 로드
+    };
+
+    // --- 아이콘 선택 ---
     const icons=['🔊','🖼️','📚','🌐','💬','📑','🧩','⚙️','🔒','📊','📈','📝','📂','📡','📺','🎧','🎤','📷','🖊️','🗂️'];
     icons.forEach(ic=>{
       const el=document.createElement('div');el.className='pick';el.textContent=ic;
@@ -262,17 +254,16 @@
       iconPicker.appendChild(el);
     });
 
+    // --- 관리자 모드 ---
     switchEl.onclick=()=>{
       switchEl.classList.toggle('active');
       isAdmin=switchEl.classList.contains('active');
       pluginBtn.style.display=isAdmin?'inline-block':'none';
-      grid.querySelectorAll('.card').forEach(c=>c.classList.toggle('admin',isAdmin));
-      document.querySelectorAll('.tab.custom').forEach(tab=>{
-        if(isAdmin){tab.classList.add('admin');}else{tab.classList.remove('admin');}
-      });
     };
 
+    // --- 초기 실행 ---
     populateCategorySelect();
+    loadPluginsFromDB();
   </script>
 </body>
 </html>
